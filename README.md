@@ -21,7 +21,7 @@ A scraper for books.toscrape.com.
    to determine how many catalogue pages need to be fetched.
 3. For each page the pipeline runs `scrape_page` → `parse_books`
    (synchronously, page by page). Each page request has a 15-second timeout
-   and is retried up to 3 times on timeout or connection error.
+   and is retried up to 3 times on timeout.
 4. At the end all parsed books are written to `output.json` in the project
    root. If fewer books were parsed than requested, the script reports the
    actual count and still writes the file.
