@@ -10,18 +10,21 @@ A scraper for books.toscrape.com.
   as-is.
 - **v1** — the main working version. Takes the number of books to scrape as a
   CLI argument, calculates how many catalogue pages are needed, scrapes them
-  synchronously, and saves the result to `output.json`. It does not print to
-  the terminal.
+  synchronously, and saves the result to `output.json`. It prints progress to
+  the terminal (one line per book and per page).
 
 ## How v1 works
 
-1. `v1.py` is run from the terminal with a single argument — the number of
-   books to scrape.
-2. That number is divided by the number of books per page and rounded up to
-   determine how many catalogue pages need to be fetched.
+1. `v1.py` is run from the terminal with a single required argument — the
+   number of books to scrape.
+2. That number is divided by the number of books per page (20) and rounded up
+   to determine how many catalogue pages need to be fetched.
 3. For each page the pipeline runs `scrape_page` → `parse_books`
-   (synchronously, page by page).
-4. At the end all parsed books are written to `output.json`.
+   (synchronously, page by page). Each page request has a 15-second timeout
+   and is retried up to 3 times on timeout or connection error.
+4. At the end all parsed books are written to `output.json` in the project
+   root. If fewer books were parsed than requested, the script reports the
+   actual count and still writes the file.
 
 ## Installation
 
@@ -44,13 +47,28 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-python v1.py <number_of_books>
+python v1.py <number_of_books> [--delay SECONDS] [-g]
 ```
 
-Example — scrape 40 books:
+Arguments:
+
+- `<number_of_books>` — how many books to scrape (required, integer).
+- `--delay SECONDS` — delay in seconds used between retries and (with `-g`)
+  between page requests. Default: `5`.
+- `-g` — "gentle" mode: sleep `--delay` seconds after each successfully
+  scraped page to avoid hitting the server too hard.
+
+Examples:
 
 ```bash
+# Scrape 40 books with default settings
 python v1.py 40
+
+# Scrape 100 books, 2-second delay, gentle mode
+python v1.py 100 --delay 2 -g
+
+# Show help
+python v1.py --help
 ```
 
 The result is written to `output.json` in the project root.
@@ -61,6 +79,38 @@ prints it to the terminal as indented JSON:
 ```bash
 python v0.py
 ```
+
+## Output format
+
+`output.json` is a JSON array of objects. `url` and `title` are always
+present and non-null (books without them are skipped during parsing).
+`rating`, `price` and `availability` may be `null` if the corresponding
+element was not found on the page:
+
+```json
+[
+    {
+        "url": "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html",
+        "rating": "Three",
+        "title": "A Light in the Attic",
+        "price": "£51.77",
+        "availability": "In stock"
+    }
+]
+```
+
+## Limitations
+
+- The script is synchronous: pages are fetched one after another, so a large
+  `number_of_books` value means a proportionally longer runtime.
+- books.toscrape.com contains 1000 books in total. Requesting more than that
+  will return fewer entries than asked; the script reports the actual count.
+- Each page request is retried up to 3 times on timeout. If a page still
+  fails with an HTTP error (any status that `raise_for_status()` treats as an
+  error, including 404), the error is printed, the page is skipped, and
+  scraping continues with the next page. A `ConnectionError` is not caught
+  and will terminate the script. As a result, `output.json` may contain fewer
+  books than requested even though the script completes successfully.
 
 ## License
 
