@@ -11,7 +11,7 @@ A scraper for books.toscrape.com.
 - **v1** — the main working version. Takes the number of books to scrape as a
   CLI argument, calculates how many catalogue pages are needed, scrapes them
   synchronously, and saves the result to `output.json`. It prints progress to
-  the terminal (one line per book and per page).
+  the terminal.
 
 ## How v1 works
 
@@ -21,7 +21,7 @@ A scraper for books.toscrape.com.
    to determine how many catalogue pages need to be fetched.
 3. For each page the pipeline runs `scrape_page` → `parse_books`
    (synchronously, page by page). Each page request has a 15-second timeout
-   and is retried up to 3 times on timeout.
+   and is retried up to 3 times on timeout or connection error.
 4. At the end all parsed books are written to `output.json` in the project
    root. If fewer books were parsed than requested, the script reports the
    actual count and still writes the file.
@@ -105,12 +105,8 @@ element was not found on the page:
   `number_of_books` value means a proportionally longer runtime.
 - books.toscrape.com contains 1000 books in total. Requesting more than that
   will return fewer entries than asked; the script reports the actual count.
-- Each page request is retried up to 3 times on timeout. If a page still
-  fails with an HTTP error (any status that `raise_for_status()` treats as an
-  error, including 404), the error is printed, the page is skipped, and
-  scraping continues with the next page. A `ConnectionError` is not caught
-  and will terminate the script. As a result, `output.json` may contain fewer
-  books than requested even though the script completes successfully.
+- Each page request is retried up to 3 times on timeout or connection error. If a page fails with a 404 error, the script stops,
+  assuming there are no further pages, and saves whatever has already been collected. As a result, output.json may contain fewer books than requested even though the script completes successfully.
 
 ## License
 
